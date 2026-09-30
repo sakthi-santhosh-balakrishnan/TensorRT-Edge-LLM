@@ -360,6 +360,53 @@ def test_visual_off_unless_requested():
     mtq.quantize(model, build_quant_config("fp8"), forward_loop=_calib_hidden)
     assert _wq(model.q_proj)[0] and not _wq(model.visual.fc1)[0]
 
+def test_multimodal_llm_calibration_forces_image_text_loop():
+    """
+    --multimodal_llm_calibration routes fp8 (range only) calibration
+    through image-text batches even though the visual tower isn't quantized.
+
+    The auto-detection in _is_image_blind_calibration only fires for
+    algorithms that reshape weights (e.g. awq_lite), not for fp8/nvfp4.
+    """
+    quantize_mod = importlib.import_module(
+        "tensorrt_edgellm.quantization.quantize"
+    )
+
+    model = _MultiModalModel(visual_prefix="visual")
+    quant_cfg = build_quant_config("fp8")
+
+    assert not quantize_mod._should_calibrate_multimodal(
+        visual_quantization=None,
+        multimodal_llm_calibration=False,
+        model=model,
+        quant_cfg=quant_cfg,
+    )
+
+    assert quantize_mod._should_calibrate_multimodal(
+        visual_quantization=None,
+        multimodal_llm_calibration=True,
+        model=model,
+        quant_cfg=quant_cfg,
+    )
+
+
+def test_multimodal_llm_calibration_does_not_affect_visual_quantization():
+    quantize_mod = importlib.import_module(
+        "tensorrt_edgellm.quantization.quantize"
+    )
+
+    model = _MultiModalModel(visual_prefix="visual")
+    quant_cfg = build_quant_config(
+        "fp8",
+        visual_quantization="fp8",
+    )
+
+    assert quantize_mod._should_calibrate_multimodal(
+        visual_quantization="fp8",
+        multimodal_llm_calibration=False,
+        model=model,
+        quant_cfg=quant_cfg,
+    )
 
 # --------------------------------------------------------------------------- #
 # ASR audio tower

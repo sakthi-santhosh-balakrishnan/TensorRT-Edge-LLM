@@ -771,7 +771,27 @@ def _is_image_blind_calibration(model, quant_cfg: dict) -> bool:
         return False
     return quant_cfg.get("algorithm") not in (None, "max")
 
+def _should_calibrate_multimodal(
+    visual_quantization: Optional[str],
+    multimodal_llm_calibration: bool,
+    model: torch.nn.Module,
+    quant_cfg: dict,
+) -> bool:
+    """True if calibration should route image-text batches through the full VLM.
 
+    Triggers when the visual tower itself is being quantized, when the caller
+    explicitly asked to calibrate an LLM-only quantization run on multimodal
+    inputs while the visual tower stays fp16 ("multimodal_llm_calibration"),
+    or when the algorithm reshapes weights against the calibration
+    distribution and would otherwise starve the image-token activations
+    (see `_is_image_blind_calibration`).
+    """
+    return (
+        visual_quantization is not None
+        or multimodal_llm_calibration
+        or _is_image_blind_calibration(model, quant_cfg)
+    )
+    
 def _is_gemma4_unified_model(model_dir: str) -> bool:
     from ..chat_template import _get_model_type
     return _get_model_type(model_dir) in ("gemma4_unified", )

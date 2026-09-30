@@ -144,6 +144,19 @@ def main():
         action="store_true",
         help=("Gemma4 int4_awq/nvfp4 only: force-quantize down_proj to 4-bit. "
               "Off by default -- down_proj stays fp16 to preserve accuracy."))
+    parser.add_argument(
+    "--multimodal_llm_calibration",
+    action="store_true",
+    help=(
+        "Calibrate the LLM backbone (and lm_head / kv_cache, if "
+        "requested) on image-text inputs from --image_dataset, run "
+        "through the full VLM pipeline, while the visual tower stays "
+        "unquantized fp16. Use with --visual_quantization unset when "
+        "the backbone quantizers must see production-like "
+        "visual-token activations. Independent of --visual_quantization, "
+        "which is unaffected by this flag."
+    ),
+)
     llm_parser.add_argument(
         "--mtp_draft_dir",
         default=None,
@@ -184,6 +197,7 @@ def main():
             num_samples=args.num_samples,
             fuse_gdn_qkvzba_scales=args.fuse_gdn_qkvzba_scales,
             quantize_gemma4_down_proj=args.quantize_gemma4_down_proj,
+            multimodal_llm_calibration=args.multimodal_llm_calibration,
         )
     elif args.command == "draft":
         if _is_dflash_family_draft(args.draft_model_dir):
